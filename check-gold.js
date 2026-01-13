@@ -4,12 +4,11 @@ import fs from "fs";
 
 const URL = "https://kimkhanhviethung.vn/tra-cuu-gia-vang.html";
 
-// LẤY TỪ GITHUB SECRETS
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = "5495863772";
 
 // ===============================
-// LẤY GIÁ NHẪN KHÂU 98
+// LẤY GIÁ VÀNG NHẪN 98
 // ===============================
 async function getGiaNhan98() {
   const res = await axios.get(URL, {
@@ -17,10 +16,6 @@ async function getGiaNhan98() {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
         "(KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-      "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
-      Referer: "https://kimkhanhviethung.vn/",
     },
     timeout: 20000,
   });
@@ -46,20 +41,6 @@ async function getGiaNhan98() {
 }
 
 // ===============================
-// KIỂM TRA GIỜ BÁO CỐ ĐỊNH
-// ===============================
-function isFixedTime(dateVN) {
-  const hour = dateVN.getHours();
-  const minute = dateVN.getMinutes();
-
-  // cron 5 phút/lần → chỉ gửi trong 5 phút đầu giờ
-  return (
-    minute < 5 &&
-    (hour === 7 || hour === 12 || hour === 19 || hour === 22)
-  );
-}
-
-// ===============================
 // GỬI TELEGRAM
 // ===============================
 async function sendTelegram(message) {
@@ -76,49 +57,98 @@ async function sendTelegram(message) {
 async function main() {
   const newPrice = await getGiaNhan98();
 
-  let oldPrice = null;
+  let data = {
+    buy: null,
+    sell: null,
+    lastHourlyNotifyHour: null,
+  };
+
   if (fs.existsSync("data.json")) {
-    oldPrice = JSON.parse(fs.readFileSync("data.json", "utf8"));
+    data = JSON.parse(fs.readFileSync("data.json", "utf8"));
   }
 
-  // Giờ Việt Nam
+  const oldPrice = {
+    buy: data.buy,
+    sell: data.sell,
+  };
+
   const now = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" })
   );
 
-  const fixedTime = isFixedTime(now);
+  const hour = now.getHours();
+  const minute = now.getMinutes();
 
   const priceChanged =
-    !oldPrice ||
-    oldPrice.buy !== newPrice.buy ||
-    oldPrice.sell !== newPrice.sell;
+    oldPrice.buy !== newPrice.buy || oldPrice.sell !== newPrice.sell;
 
-  // QUYẾT ĐỊNH GỬI TELEGRAM
-  if (fixedTime || priceChanged) {
-    const message = `
-📢 GIÁ VÀNG NHẪN KHÂU 98
+  let message = null;
+  let isHourlyNotify = false;
 
-${fixedTime && !priceChanged ? "⏰ Báo giá định kỳ" : ""}
-${priceChanged ? "🔔 Có thay đổi giá" : ""}
+  // ===============================
+  // BÁO GIÁ ĐỊNH KỲ MỖI 1 TIẾNG
+  // ===============================
+  if (
+    minute < 5 && // cron 5 phút → chỉ 1 lần trong đầu giờ
+    data.lastHourlyNotifyHour !== hour
+  ) {
+    message = `
+📢 GIÁ VÀNG 98 Ở THỜI ĐIỂM HIỆN TẠI
 
 Mua: ${newPrice.buy}
 Bán: ${newPrice.sell}
 
 ⏰ ${now.toLocaleString("vi-VN")}
 `;
+    isHourlyNotify = true;
+  }
 
+  // ===============================
+  // BÁO KHI GIÁ THAY ĐỔI
+  // ===============================
+  else if (priceChanged) {
+    message = `
+📢 GIÁ VÀNG 98 CÓ SỰ THAY ĐỔI
+
+🔻 Giá cũ:
+Mua: ${oldPrice.buy || "—"}
+Bán: ${oldPrice.sell || "—"}
+
+🔺 Giá mới:
+Mua: ${newPrice.buy}
+Bán: ${newPrice.sell}
+
+⏰ ${now.toLocaleString("vi-VN")}
+`;
+  }
+
+  if (message) {
     await sendTelegram(message.trim());
     console.log("✅ Đã gửi Telegram");
   } else {
-    console.log("ℹ️ Không gửi (không đổi giá & ngoài giờ cố định)");
+    console.log("ℹ️ Không có thông báo");
   }
 
-  // LUÔN LƯU GIÁ MỚI
-  fs.writeFileSync("data.json", JSON.stringify(newPrice, null, 2));
+  // ===============================
+  // LƯU DATA
+  // ===============================
+  fs.writeFileSync(
+    "data.json",
+    JSON.stringify(
+      {
+        buy: newPrice.buy,
+        sell: newPrice.sell,
+        lastHourlyNotifyHour: isHourlyNotify
+          ? hour
+          : data.lastHourlyNotifyHour,
+      },
+      null,
+      2
+    )
+  );
 }
 
 main().catch((err) => {
   console.error("❌ Lỗi:", err.message);
   process.exit(1);
 });
-
