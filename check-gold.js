@@ -5,7 +5,7 @@ import fs from "fs";
 const URL = "https://kimkhanhviethung.vn/tra-cuu-gia-vang.html";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = "5495863772";
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 // ===============================
 // LẤY GIÁ VÀNG NHẪN 98
@@ -88,10 +88,7 @@ async function main() {
   // ===============================
   // BÁO GIÁ ĐỊNH KỲ MỖI 1 TIẾNG
   // ===============================
-  if (
-    minute < 5 && // cron 5 phút → chỉ 1 lần trong đầu giờ
-    data.lastHourlyNotifyHour !== hour
-  ) {
+  if (minute < 5 && data.lastHourlyNotifyHour !== hour) {
     message = `
 📢 GIÁ VÀNG 98 Ở THỜI ĐIỂM HIỆN TẠI
 
@@ -129,9 +126,6 @@ Bán: ${newPrice.sell}
     console.log("ℹ️ Không có thông báo");
   }
 
-  // ===============================
-  // LƯU DATA
-  // ===============================
   fs.writeFileSync(
     "data.json",
     JSON.stringify(
