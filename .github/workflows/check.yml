@@ -2,7 +2,7 @@ name: Check gold price & notify Telegram
 
 on:
   schedule:
-    - cron: "*/30 * * * *" # mỗi 30 phút
+    - cron: "*/10 * * * *" # mỗi 10 phút
   workflow_dispatch:
 
 jobs:
