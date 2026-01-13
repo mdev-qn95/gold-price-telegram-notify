@@ -2,37 +2,58 @@ name: Gold Price Bot
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # mỗi 5 phút
+    - cron: "*/5 * * * *"   # mỗi 5 phút (GitHub có thể trễ vài phút)
   workflow_dispatch:
+
+permissions:
+  contents: write   # ⭐ BẮT BUỘC để push data.json, history.json
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      # 1️⃣ Checkout source
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           persist-credentials: true
 
+      # 2️⃣ Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install dependencies
+      # 3️⃣ Cài dependency hệ thống cho canvas
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcairo2-dev \
+            libpango1.0-dev \
+            libjpeg-dev \
+            libgif-dev \
+            librsvg2-dev
+
+      # 4️⃣ Cài npm packages
+      - name: Install npm dependencies
         run: npm install
 
-      - name: Run bot
+      # 5️⃣ Chạy bot
+      - name: Run gold price bot
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: node check-gold.js
 
-      - name: Save price
+      # 6️⃣ Lưu data.json + history.json
+      - name: Save price data
         run: |
           git config user.name "gold-bot"
           git config user.email "gold-bot@github.com"
-          git add data.json
-          git commit -m "update gold price" || echo "no change"
+
+          git add data.json history.json chart.png || true
+          git commit -m "update gold price data" || echo "No changes to commit"
+
           git push
