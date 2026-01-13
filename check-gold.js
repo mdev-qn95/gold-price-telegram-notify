@@ -1,6 +1,6 @@
 import fs from "fs";
 import axios from "axios";
-import cheerio from "cheerio";
+import * as cheerio from "cheerio";
 
 const URL = "https://kimkhanhviethung.vn/tra-cuu-gia-vang.html";
 const DATA_FILE = "data.json";
@@ -81,3 +81,4 @@ Mua ${newPrice.mua} | Bán ${newPrice.ban}
   fs.writeFileSync(DATA_FILE, JSON.stringify(newPrice, null, 2));
   console.log("✅ Đã gửi Telegram & lưu giá mới");
 })();
+
