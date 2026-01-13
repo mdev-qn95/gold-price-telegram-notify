@@ -1,0 +1,30 @@
+name: Check gold price & notify Telegram
+
+on:
+  schedule:
+    - cron: "*/30 * * * *" # mỗi 30 phút
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm install
+
+      - run: node check-gold.js
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+
+      - name: Save price
+        run: |
+          git config user.name "gold-bot"
+          git config user.email "gold-bot@github.com"
+          git add data.json
+          git commit -m "update gold price" || echo "no change"
+          git push
