@@ -52,10 +52,10 @@ function isFixedTime(dateVN) {
   const hour = dateVN.getHours();
   const minute = dateVN.getMinutes();
 
-  // cron 10 phút/lần → chỉ gửi trong 10 phút đầu giờ
+  // cron 5 phút/lần → chỉ gửi trong 5 phút đầu giờ
   return (
-    minute < 10 &&
-    (hour === 7 || hour === 12 || hour === 19)
+    minute < 5 &&
+    (hour === 7 || hour === 12 || hour === 19 || hour === 22)
   );
 }
 
@@ -121,3 +121,4 @@ main().catch((err) => {
   console.error("❌ Lỗi:", err.message);
   process.exit(1);
 });
+
