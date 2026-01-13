@@ -4,14 +4,13 @@ import fs from "fs";
 
 const URL = "https://kimkhanhviethung.vn/tra-cuu-gia-vang.html";
 
-// 🔴 THAY BẰNG TOKEN BOT CỦA BẠN
-const TELEGRAM_BOT_TOKEN = "8191586360:AAED0mkhu9rbq_tyi6dCOsK--iGu6YN1ujI";
-
-// 🔴 CHAT ID CỦA BẠN
+// LẤY TỪ GITHUB SECRETS
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = "5495863772";
 
 // ===============================
-
+// LẤY GIÁ NHẪN KHÂU 98
+// ===============================
 async function getGiaNhan98() {
   const res = await axios.get(URL, {
     headers: {
@@ -33,7 +32,6 @@ async function getGiaNhan98() {
 
   $("table tbody tr").each((_, el) => {
     const name = $(el).find("td").eq(0).text().trim();
-
     if (name.includes("Nhẫn Khâu 98")) {
       buy = $(el).find("td").eq(1).text().trim();
       sell = $(el).find("td").eq(2).text().trim();
@@ -41,17 +39,31 @@ async function getGiaNhan98() {
   });
 
   if (!buy || !sell) {
-    throw new Error("❌ Không tìm thấy giá Nhẫn Khâu 98");
+    throw new Error("Không tìm thấy giá Nhẫn Khâu 98");
   }
 
   return { buy, sell };
 }
 
 // ===============================
+// KIỂM TRA GIỜ BÁO CỐ ĐỊNH
+// ===============================
+function isFixedTime(dateVN) {
+  const hour = dateVN.getHours();
+  const minute = dateVN.getMinutes();
 
+  // cron 10 phút/lần → chỉ gửi trong 10 phút đầu giờ
+  return (
+    minute < 10 &&
+    (hour === 7 || hour === 12 || hour === 19)
+  );
+}
+
+// ===============================
+// GỬI TELEGRAM
+// ===============================
 async function sendTelegram(message) {
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-
   await axios.post(url, {
     chat_id: TELEGRAM_CHAT_ID,
     text: message,
@@ -59,47 +71,50 @@ async function sendTelegram(message) {
 }
 
 // ===============================
-
+// MAIN
+// ===============================
 async function main() {
   const newPrice = await getGiaNhan98();
 
   let oldPrice = null;
-
   if (fs.existsSync("data.json")) {
     oldPrice = JSON.parse(fs.readFileSync("data.json", "utf8"));
   }
 
-  const isChanged =
+  // Giờ Việt Nam
+  const now = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" })
+  );
+
+  const fixedTime = isFixedTime(now);
+
+  const priceChanged =
     !oldPrice ||
     oldPrice.buy !== newPrice.buy ||
     oldPrice.sell !== newPrice.sell;
 
-  if (isChanged) {
-    const now = new Date().toLocaleString("vi-VN", {
-      timeZone: "Asia/Ho_Chi_Minh",
-    });
-
+  // QUYẾT ĐỊNH GỬI TELEGRAM
+  if (fixedTime || priceChanged) {
     const message = `
-📢 GIÁ VÀNG NHẪN KHÂU 98 THAY ĐỔI
+📢 GIÁ VÀNG NHẪN KHÂU 98
 
-🔻 Giá cũ:
-Mua: ${oldPrice?.buy || "—"}
-Bán: ${oldPrice?.sell || "—"}
+${fixedTime && !priceChanged ? "⏰ Báo giá định kỳ" : ""}
+${priceChanged ? "🔔 Có thay đổi giá" : ""}
 
-🔺 Giá mới:
 Mua: ${newPrice.buy}
 Bán: ${newPrice.sell}
 
-⏰ ${now}
+⏰ ${now.toLocaleString("vi-VN")}
 `;
 
     await sendTelegram(message.trim());
-
-    fs.writeFileSync("data.json", JSON.stringify(newPrice, null, 2));
-    console.log("✅ Đã gửi Telegram & lưu giá mới");
+    console.log("✅ Đã gửi Telegram");
   } else {
-    console.log("ℹ️ Giá không thay đổi");
+    console.log("ℹ️ Không gửi (không đổi giá & ngoài giờ cố định)");
   }
+
+  // LUÔN LƯU GIÁ MỚI
+  fs.writeFileSync("data.json", JSON.stringify(newPrice, null, 2));
 }
 
 main().catch((err) => {
