@@ -19,7 +19,7 @@ jobs:
 
       - run: node check-gold.js
         env:
-          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
 
       - name: Save price
         run: |
