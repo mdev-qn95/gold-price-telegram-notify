@@ -13,7 +13,6 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 // HELPERS
 // ===============================
 function parsePrice(str) {
-  // FIX QUAN TRỌNG: loại bỏ . và đ
   return Number(str.replace(/[^\d]/g, ""));
 }
 
@@ -28,7 +27,7 @@ function formatTime(d) {
 }
 
 // ===============================
-// LẤY GIÁ VÀNG
+// LẤY GIÁ
 // ===============================
 async function getGiaNhan98() {
   const res = await axios.get(URL, {
@@ -50,7 +49,7 @@ async function getGiaNhan98() {
     }
   });
 
-  if (!buy || !sell) throw new Error("Không tìm thấy giá Nhẫn Khâu 98");
+  if (!buy || !sell) throw new Error("Không tìm thấy giá");
 
   return { buy, sell };
 }
@@ -61,10 +60,7 @@ async function getGiaNhan98() {
 async function sendMessage(text) {
   await axios.post(
     `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-    {
-      chat_id: TELEGRAM_CHAT_ID,
-      text,
-    }
+    { chat_id: TELEGRAM_CHAT_ID, text }
   );
 }
 
@@ -77,71 +73,100 @@ async function sendImage(path, caption) {
   await axios.post(
     `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`,
     form,
-    {
-      headers: form.getHeaders(),
-    }
+    { headers: form.getHeaders() }
   );
 }
 
 // ===============================
-// VẼ BIỂU ĐỒ
+// BIỂU ĐỒ (DOT + VERTICAL LINE)
 // ===============================
+function findChangeIndexes(history) {
+  const idx = [];
+  for (let i = 1; i < history.length; i++) {
+    if (
+      history[i].buy !== history[i - 1].buy ||
+      history[i].sell !== history[i - 1].sell
+    ) {
+      idx.push(i);
+    }
+  }
+  return idx;
+}
+
 function drawChart(history) {
   const width = 900;
   const height = 500;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  // background
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, width, height);
 
-  const pricesBuy = history.map((h) => parsePrice(h.buy));
-  const pricesSell = history.map((h) => parsePrice(h.sell));
+  const buyPrices = history.map((h) => parsePrice(h.buy));
+  const sellPrices = history.map((h) => parsePrice(h.sell));
 
-  // guard an toàn
-  if (pricesBuy.some(isNaN) || pricesSell.some(isNaN)) {
-    console.log("⚠️ Giá không hợp lệ, bỏ qua vẽ chart");
-    return false;
-  }
-
-  let min = Math.min(...pricesBuy, ...pricesSell);
-  let max = Math.max(...pricesBuy, ...pricesSell);
-
-  // FIX min === max (giá đứng yên)
+  let min = Math.min(...buyPrices, ...sellPrices);
+  let max = Math.max(...buyPrices, ...sellPrices);
   if (min === max) {
     min -= 1_000_000;
     max += 1_000_000;
   }
 
-  function y(v) {
-    return height - 50 - ((v - min) / (max - min)) * (height - 100);
-  }
+  const y = (v) =>
+    height - 50 - ((v - min) / (max - min)) * (height - 100);
+
+  const xAt = (i, total) =>
+    50 + (i / (total - 1)) * (width - 100);
 
   function drawLine(values, color) {
     ctx.strokeStyle = color;
     ctx.lineWidth = 3;
     ctx.beginPath();
     values.forEach((v, i) => {
-      const x = 50 + (i / (values.length - 1)) * (width - 100);
+      const xx = xAt(i, values.length);
       const yy = y(v);
-      if (i === 0) ctx.moveTo(x, yy);
-      else ctx.lineTo(x, yy);
+      if (i === 0) ctx.moveTo(xx, yy);
+      else ctx.lineTo(xx, yy);
     });
     ctx.stroke();
   }
 
-  // axes
-  ctx.strokeStyle = "#ccc";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(50, 50, width - 100, height - 100);
+  drawLine(buyPrices, "green");
+  drawLine(sellPrices, "red");
 
-  // lines
-  drawLine(pricesBuy, "#2ecc71");  // xanh lá
-  drawLine(pricesSell, "#e74c3c"); // đỏ
+  // --- MỐC THAY ĐỔI
+  const changeIdx = findChangeIndexes(history);
 
-  fs.writeFileSync("chart.png", canvas.toBuffer("image/png"));
-  return true;
+  changeIdx.forEach((i) => {
+    const xx = xAt(i, history.length);
+
+    // đường dọc
+    ctx.strokeStyle = "#ccc";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(xx, 50);
+    ctx.lineTo(xx, height - 50);
+    ctx.stroke();
+
+    // chấm mua
+    ctx.fillStyle = "green";
+    ctx.beginPath();
+    ctx.arc(xx, y(buyPrices[i]), 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // chấm bán
+    ctx.fillStyle = "red";
+    ctx.beginPath();
+    ctx.arc(xx, y(sellPrices[i]), 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // giờ
+    ctx.fillStyle = "#333";
+    ctx.font = "12px sans-serif";
+    ctx.fillText(history[i].time.slice(11), xx - 18, height - 30);
+  });
+
+  fs.writeFileSync("chart.png", canvas.toBuffer());
 }
 
 // ===============================
@@ -151,17 +176,13 @@ async function main() {
   const price = await getGiaNhan98();
   const now = nowVN();
 
-  // ---- data.json
   let data = { buy: null, sell: null, lastHourlyNotifyHour: null };
-  if (fs.existsSync("data.json")) {
+  if (fs.existsSync("data.json"))
     data = JSON.parse(fs.readFileSync("data.json"));
-  }
 
-  // ---- history.json
   let history = [];
-  if (fs.existsSync("history.json")) {
+  if (fs.existsSync("history.json"))
     history = JSON.parse(fs.readFileSync("history.json"));
-  }
 
   history.push({
     time: formatTime(now),
@@ -171,15 +192,13 @@ async function main() {
 
   fs.writeFileSync("history.json", JSON.stringify(history, null, 2));
 
-  const changed = data.buy !== price.buy || data.sell !== price.sell;
+  const changed =
+    data.buy !== price.buy || data.sell !== price.sell;
 
   const hour = now.getHours();
-  const minute = now.getMinutes();
-
   let message = null;
   let hourly = false;
 
-  // thông báo định kỳ mỗi giờ
   if (data.lastHourlyNotifyHour !== hour) {
     message = `📢 GIÁ VÀNG 98 HIỆN TẠI
 
@@ -188,9 +207,7 @@ Bán: ${price.sell}
 
 ⏰ ${now.toLocaleString("vi-VN")}`;
     hourly = true;
-  }
-  // thông báo khi có thay đổi giá
-  else if (changed) {
+  } else if (changed) {
     message = `📢 GIÁ VÀNG 98 CÓ SỰ THAY ĐỔI
 
 🔻 Giá cũ:
@@ -209,13 +226,8 @@ Bán: ${price.sell}
 
     const last24 = history.slice(-24);
     if (last24.length >= 2) {
-      const ok = drawChart(last24);
-      if (ok) {
-        await sendImage(
-          "chart.png",
-          "📊 Biểu đồ giá vàng 98 (gần nhất)"
-        );
-      }
+      drawChart(last24);
+      await sendImage("chart.png", "📊 Biểu đồ giá vàng 98");
     }
   }
 
@@ -235,7 +247,4 @@ Bán: ${price.sell}
   );
 }
 
-main().catch((err) => {
-  console.error("❌ Lỗi:", err.message);
-  process.exit(1);
-});
+main();
