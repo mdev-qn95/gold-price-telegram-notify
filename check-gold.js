@@ -13,7 +13,7 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 // HELPERS
 // ===============================
 function parsePrice(str) {
-  return Number(str.replace(/\./g, ""));
+  return Number(str.replace(/[^\d]/g, ""));
 }
 
 function nowVN() {
