@@ -41,7 +41,7 @@ jobs:
 
       # 4️⃣ Cài dependency JS
       - name: Install npm dependencies
-        run: npm ci
+        run: npm install
 
       # 5️⃣ Chạy bot
       - name: Run gold price checker
