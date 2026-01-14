@@ -179,8 +179,8 @@ async function main() {
   let message = null;
   let hourly = false;
 
-  // thông báo định kỳ mỗi giờ (trong 5 phút đầu giờ)
-  if (minute < 5 && data.lastHourlyNotifyHour !== hour) {
+  // thông báo định kỳ mỗi giờ
+  if (data.lastHourlyNotifyHour !== hour) {
     message = `📢 GIÁ VÀNG 98 HIỆN TẠI
 
 Mua: ${price.buy}
