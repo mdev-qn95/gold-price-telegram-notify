@@ -134,37 +134,35 @@ function drawChart(history) {
   drawLine(buyPrices, "green");
   drawLine(sellPrices, "red");
 
-  // --- MỐC THAY ĐỔI
-  const changeIdx = findChangeIndexes(history);
+  for (let i = 1; i < history.length; i++) {
+    if (
+      history[i].buy !== history[i - 1].buy ||
+      history[i].sell !== history[i - 1].sell
+    ) {
+      const xx = xAt(i, history.length);
 
-  changeIdx.forEach((i) => {
-    const xx = xAt(i, history.length);
+      // label buy
+      ctx.fillStyle = "green";
+      ctx.font = "12px sans-serif";
+      ctx.fillText(
+        buyPrices[i].toLocaleString("vi-VN"),
+        xx + 5,
+        y(buyPrices[i]) - 5
+      );
 
-    // đường dọc
-    ctx.strokeStyle = "#ccc";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(xx, 50);
-    ctx.lineTo(xx, height - 50);
-    ctx.stroke();
+      // label sell
+      ctx.fillStyle = "red";
+      ctx.fillText(
+        sellPrices[i].toLocaleString("vi-VN"),
+        xx + 5,
+        y(sellPrices[i]) - 5
+      );
 
-    // chấm mua
-    ctx.fillStyle = "green";
-    ctx.beginPath();
-    ctx.arc(xx, y(buyPrices[i]), 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // chấm bán
-    ctx.fillStyle = "red";
-    ctx.beginPath();
-    ctx.arc(xx, y(sellPrices[i]), 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // giờ
-    ctx.fillStyle = "#333";
-    ctx.font = "12px sans-serif";
-    ctx.fillText(history[i].time.slice(11), xx - 18, height - 30);
-  });
+      // time
+      ctx.fillStyle = "#333";
+      ctx.fillText(history[i].time.slice(11), xx - 15, height - 30);
+    }
+  }
 
   fs.writeFileSync("chart.png", canvas.toBuffer());
 }
