@@ -92,8 +92,13 @@ function drawChart(history) {
   const pricesBuy = history.map((h) => parsePrice(h.buy));
   const pricesSell = history.map((h) => parsePrice(h.sell));
 
-  const min = Math.min(...pricesBuy, ...pricesSell);
-  const max = Math.max(...pricesBuy, ...pricesSell);
+  let min = Math.min(...pricesBuy, ...pricesSell);
+  let max = Math.max(...pricesBuy, ...pricesSell);
+
+  if (min === max) {
+    min = min - 1_000_000;
+    max = max + 1_000_000;
+  }
 
   function y(v) {
     return (
@@ -103,6 +108,7 @@ function drawChart(history) {
 
   function drawLine(values, color) {
     ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
     ctx.beginPath();
     values.forEach((v, i) => {
       const x = 50 + (i / (values.length - 1)) * (width - 100);
