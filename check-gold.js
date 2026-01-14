@@ -99,6 +99,9 @@ function drawChart(history) {
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
+  // =====================
+  // BACKGROUND
+  // =====================
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, width, height);
 
@@ -107,17 +110,36 @@ function drawChart(history) {
 
   let min = Math.min(...buyPrices, ...sellPrices);
   let max = Math.max(...buyPrices, ...sellPrices);
+
   if (min === max) {
     min -= 1_000_000;
     max += 1_000_000;
   }
 
+  const padding = 50;
+
   const y = (v) =>
-    height - 50 - ((v - min) / (max - min)) * (height - 100);
+    height - padding - ((v - min) / (max - min)) * (height - padding * 2);
 
   const xAt = (i, total) =>
-    50 + (i / (total - 1)) * (width - 100);
+    padding + (i / (total - 1)) * (width - padding * 2);
 
+  // =====================
+  // GRID (nhẹ)
+  // =====================
+  ctx.strokeStyle = "#eee";
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const yy = padding + (i / 5) * (height - padding * 2);
+    ctx.beginPath();
+    ctx.moveTo(padding, yy);
+    ctx.lineTo(width - padding, yy);
+    ctx.stroke();
+  }
+
+  // =====================
+  // DRAW LINE
+  // =====================
   function drawLine(values, color) {
     ctx.strokeStyle = color;
     ctx.lineWidth = 3;
@@ -134,35 +156,58 @@ function drawChart(history) {
   drawLine(buyPrices, "green");
   drawLine(sellPrices, "red");
 
+  // =====================
+  // MARK CHANGE POINTS
+  // =====================
+  ctx.font = "11px sans-serif";
+
   for (let i = 1; i < history.length; i++) {
-    if (
+    const changed =
       history[i].buy !== history[i - 1].buy ||
-      history[i].sell !== history[i - 1].sell
-    ) {
-      const xx = xAt(i, history.length);
+      history[i].sell !== history[i - 1].sell;
 
-      // label buy
-      ctx.fillStyle = "green";
-      ctx.font = "12px sans-serif";
-      ctx.fillText(
-        buyPrices[i].toLocaleString("vi-VN"),
-        xx + 5,
-        y(buyPrices[i]) - 5
-      );
+    if (!changed) continue;
 
-      // label sell
-      ctx.fillStyle = "red";
-      ctx.fillText(
-        sellPrices[i].toLocaleString("vi-VN"),
-        xx + 5,
-        y(sellPrices[i]) - 5
-      );
+    const xx = xAt(i, history.length);
 
-      // time
-      ctx.fillStyle = "#333";
-      ctx.fillText(history[i].time.slice(11), xx - 15, height - 30);
-    }
+    // ---- vertical line
+    ctx.strokeStyle = "#ccc";
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(xx, padding);
+    ctx.lineTo(xx, height - padding);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // ---- buy label
+    ctx.fillStyle = "green";
+    ctx.fillText(
+      buyPrices[i].toLocaleString("vi-VN"),
+      xx + 5,
+      y(buyPrices[i]) - 5
+    );
+
+    // ---- sell label
+    ctx.fillStyle = "red";
+    ctx.fillText(
+      sellPrices[i].toLocaleString("vi-VN"),
+      xx + 5,
+      y(sellPrices[i]) + 12
+    );
+
+    // ---- DATE + TIME
+    const [date, time] = history[i].time.split(" ");
+    ctx.fillStyle = "#333";
+    ctx.fillText(`${date}`, xx - 30, height - 30);
+    ctx.fillText(`${time}`, xx - 20, height - 15);
   }
+
+  // =====================
+  // TITLE
+  // =====================
+  ctx.fillStyle = "#000";
+  ctx.font = "16px sans-serif";
+  ctx.fillText("📊 Biểu đồ giá vàng 98", padding, 30);
 
   fs.writeFileSync("chart.png", canvas.toBuffer());
 }
