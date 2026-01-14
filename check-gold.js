@@ -13,6 +13,7 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 // HELPERS
 // ===============================
 function parsePrice(str) {
+  // FIX QUAN TRỌNG: loại bỏ . và đ
   return Number(str.replace(/[^\d]/g, ""));
 }
 
@@ -27,7 +28,7 @@ function formatTime(d) {
 }
 
 // ===============================
-// LẤY GIÁ
+// LẤY GIÁ VÀNG
 // ===============================
 async function getGiaNhan98() {
   const res = await axios.get(URL, {
@@ -49,7 +50,7 @@ async function getGiaNhan98() {
     }
   });
 
-  if (!buy || !sell) throw new Error("Không tìm thấy giá");
+  if (!buy || !sell) throw new Error("Không tìm thấy giá Nhẫn Khâu 98");
 
   return { buy, sell };
 }
@@ -60,7 +61,10 @@ async function getGiaNhan98() {
 async function sendMessage(text) {
   await axios.post(
     `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-    { chat_id: TELEGRAM_CHAT_ID, text }
+    {
+      chat_id: TELEGRAM_CHAT_ID,
+      text,
+    }
   );
 }
 
@@ -73,7 +77,9 @@ async function sendImage(path, caption) {
   await axios.post(
     `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`,
     form,
-    { headers: form.getHeaders() }
+    {
+      headers: form.getHeaders(),
+    }
   );
 }
 
@@ -86,24 +92,30 @@ function drawChart(history) {
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  ctx.fillStyle = "#fff";
+  // background
+  ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
 
   const pricesBuy = history.map((h) => parsePrice(h.buy));
   const pricesSell = history.map((h) => parsePrice(h.sell));
 
+  // guard an toàn
+  if (pricesBuy.some(isNaN) || pricesSell.some(isNaN)) {
+    console.log("⚠️ Giá không hợp lệ, bỏ qua vẽ chart");
+    return false;
+  }
+
   let min = Math.min(...pricesBuy, ...pricesSell);
   let max = Math.max(...pricesBuy, ...pricesSell);
 
+  // FIX min === max (giá đứng yên)
   if (min === max) {
-    min = min - 1_000_000;
-    max = max + 1_000_000;
+    min -= 1_000_000;
+    max += 1_000_000;
   }
 
   function y(v) {
-    return (
-      height - 50 - ((v - min) / (max - min)) * (height - 100)
-    );
+    return height - 50 - ((v - min) / (max - min)) * (height - 100);
   }
 
   function drawLine(values, color) {
@@ -119,10 +131,17 @@ function drawChart(history) {
     ctx.stroke();
   }
 
-  drawLine(pricesBuy, "green");
-  drawLine(pricesSell, "red");
+  // axes
+  ctx.strokeStyle = "#ccc";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(50, 50, width - 100, height - 100);
 
-  fs.writeFileSync("chart.png", canvas.toBuffer());
+  // lines
+  drawLine(pricesBuy, "#2ecc71");  // xanh lá
+  drawLine(pricesSell, "#e74c3c"); // đỏ
+
+  fs.writeFileSync("chart.png", canvas.toBuffer("image/png"));
+  return true;
 }
 
 // ===============================
@@ -152,8 +171,7 @@ async function main() {
 
   fs.writeFileSync("history.json", JSON.stringify(history, null, 2));
 
-  const changed =
-    data.buy !== price.buy || data.sell !== price.sell;
+  const changed = data.buy !== price.buy || data.sell !== price.sell;
 
   const hour = now.getHours();
   const minute = now.getMinutes();
@@ -161,6 +179,7 @@ async function main() {
   let message = null;
   let hourly = false;
 
+  // thông báo định kỳ mỗi giờ (trong 5 phút đầu giờ)
   if (minute < 5 && data.lastHourlyNotifyHour !== hour) {
     message = `📢 GIÁ VÀNG 98 HIỆN TẠI
 
@@ -169,7 +188,9 @@ Bán: ${price.sell}
 
 ⏰ ${now.toLocaleString("vi-VN")}`;
     hourly = true;
-  } else if (changed) {
+  }
+  // thông báo khi có thay đổi giá
+  else if (changed) {
     message = `📢 GIÁ VÀNG 98 CÓ SỰ THAY ĐỔI
 
 🔻 Giá cũ:
@@ -186,14 +207,15 @@ Bán: ${price.sell}
   if (message) {
     await sendMessage(message);
 
-    // vẽ + gửi biểu đồ 24 điểm gần nhất
     const last24 = history.slice(-24);
     if (last24.length >= 2) {
-      drawChart(last24);
-      await sendImage(
-        "chart.png",
-        "📊 Biểu đồ giá vàng 98 (gần nhất)"
-      );
+      const ok = drawChart(last24);
+      if (ok) {
+        await sendImage(
+          "chart.png",
+          "📊 Biểu đồ giá vàng 98 (gần nhất)"
+        );
+      }
     }
   }
 
@@ -213,4 +235,7 @@ Bán: ${price.sell}
   );
 }
 
-main();
+main().catch((err) => {
+  console.error("❌ Lỗi:", err.message);
+  process.exit(1);
+});
