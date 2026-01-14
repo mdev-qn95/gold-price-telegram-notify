@@ -1,6 +1,7 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import fs from "fs";
+import FormData from "form-data";
 import { createCanvas } from "canvas";
 
 const URL = "https://kimkhanhviethung.vn/tra-cuu-gia-vang.html";
