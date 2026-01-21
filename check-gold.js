@@ -16,6 +16,11 @@ function parsePrice(str) {
   return Number(str.replace(/[^\d]/g, ""));
 }
 
+function formatMillion(v) {
+  const m = v / 1_000_000;
+  return `${Number(m.toFixed(2)).toString()}M`;
+}
+
 function nowVN() {
   return new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" })
@@ -182,7 +187,7 @@ function drawChart(history) {
     // ---- buy label
     ctx.fillStyle = "green";
     ctx.fillText(
-      buyPrices[i].toLocaleString("vi-VN"),
+      formatMillion(buyPrices[i]),
       xx + 5,
       y(buyPrices[i]) - 5
     );
@@ -190,16 +195,18 @@ function drawChart(history) {
     // ---- sell label
     ctx.fillStyle = "red";
     ctx.fillText(
-      sellPrices[i].toLocaleString("vi-VN"),
+      formatMillion(sellPrices[i]),
       xx + 5,
       y(sellPrices[i]) + 12
     );
 
     // ---- DATE + TIME
-    const [date, time] = history[i].time.split(" ");
+    const [dateStr, timeStr] = history[i].time.split(" ");
+    const [, month, day] = dateStr.split("-");
+
     ctx.fillStyle = "#333";
-    ctx.fillText(`${date}`, xx - 30, height - 30);
-    ctx.fillText(`${time}`, xx - 20, height - 15);
+    ctx.fillText(`${day}/${month}`, xx - 30, height - 30);
+    ctx.fillText(timeStr, xx - 20, height - 15);
   }
 
   // =====================
