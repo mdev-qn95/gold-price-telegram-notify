@@ -134,6 +134,7 @@ function drawChart(history) {
   // =====================
   ctx.strokeStyle = "#eee";
   ctx.lineWidth = 1;
+  ctx.textAlign = "center";
   for (let i = 0; i <= 5; i++) {
     const yy = padding + (i / 5) * (height - padding * 2);
     ctx.beginPath();
@@ -205,8 +206,8 @@ function drawChart(history) {
     const [, month, day] = dateStr.split("-");
 
     ctx.fillStyle = "#333";
-    ctx.fillText(`${day}/${month}`, xx - 30, height - 30);
-    ctx.fillText(timeStr, xx - 20, height - 15);
+    ctx.fillText(`${day}/${month}`, xx, height - 30);
+    ctx.fillText(timeStr, xx, height - 15);
   }
 
   // =====================
